@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pandas as pd
 
 
@@ -6,20 +7,25 @@ class Node:
         self,
         feature=None,
         threshold=None,
-        data_left=None,
-        data_right=None,
-        gain=None,
+        data_left: Node = None,
+        data_right: Node = None,
+        *,
         value=None,
     ) -> None:
-        self.data_left = data_right
-        self.data_right = data_right
+        self.data_left: Node = data_left
+        self.data_right: Node = data_right
         self.feature = feature
         self.threshold = threshold
-        self.gain = gain
         self.value = value
 
-    def display_decision(self, level: int) -> None:
-        print(f"Level: {level}, Feature: {self.feature}, Threshold: {self.threshold}")
+    def is_leaf(self):
+        return self.value is not None
 
-    def display_leaf(self, level: int) -> None:
-        print(f"Level: {level}, Value: {self.value}")
+    def display(self, level):
+        if self.is_leaf():
+            print(level * "|", f"Leaf value: {self.value}, Level: {level}")
+        else:
+            print(
+                level * "|",
+                f"Feature: {self.feature}, Threshold: {self.threshold}, Level: {level}",
+            )
