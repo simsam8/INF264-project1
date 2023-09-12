@@ -18,10 +18,13 @@ class Node:
         self.threshold = threshold
         self.value = value
 
-    def is_leaf(self):
+    def is_leaf(self) -> bool:
         return self.value is not None
 
-    def display(self, level):
+    def display(self, level) -> None:
+        """
+        Display node information
+        """
         if self.is_leaf():
             print(level * "|", f"Leaf value: {self.value}, Level: {level}")
         else:
