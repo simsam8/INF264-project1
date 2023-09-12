@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import collections
 from Node import Node
 
 
@@ -9,233 +10,177 @@ class DecisionTree:
     """
 
     def __init__(self) -> None:
-        self.root_node: Node
+        # self.min_samples_split = min_samples_split
+        # self.max_depth = max_depth
+        # self.n_features = n_features
+        self.root_node = None
 
-    def equal_features(self, X: pd.DataFrame) -> bool:
-        # print(X)
-        """
-        Checks if all features has equal values.
+    def _equal_feature_values(self, X):
+        equal_row_values = np.all(X == X[0, :], axis=0)
 
-        return -> bool
-        """
-        for col in X.columns:
-            # if (X[col] == X[col].values[:1]).all():
-            if len(X[col].unique()) == 1:
-                pass
-            else:
+        for equal in equal_row_values:
+            if not equal:
                 return False
         return True
 
-    def _calculate_entropy(self, y: pd.Series) -> float:
+    def _calculate_entropy(self, y):
         """
         Helper function for calculating entropy
 
         return -> entropy: float
         """
-        p = y.value_counts() / y.shape[0]
-        return -np.sum(p * np.log2(p))
+        probablities = np.bincount(y) / len(y)
+        return -np.sum([p * np.log2(p) for p in probablities if p > 0])
 
-    def _calc_information_gain(
-        self, parent: pd.Series, left: pd.Series, right: pd.Series
-    ) -> float:
+    def _calculate_gini(self, y):
         """
-        Helper function for calculating imformation gain.
-
-        return -> information_gain: float
+        Helper function for calculating gini index
         """
-        fraction_left = left.count() / parent.count()
-        fraction_right = right.count() / parent.count()
-        E_parent = self._calculate_entropy(parent)
-        E_left = self._calculate_entropy(left)
-        E_right = self._calculate_entropy(right)
+        probabilities = np.bincount(y) / len(y)
+        return 1 - np.sum(probabilities**2)
 
-        return E_parent - (fraction_left * E_left + fraction_right * E_right)
+    def _information_gain(self, y, X_column, threshold):
+        # parent entropy
+        E_parent = self._calculate_entropy(y)
 
-    # def calculate_information_gain(self, X: pd.DataFrame, y: pd.Series):
-    #     """
-    #     Returns the feature with the highest information gain
-    #     """
-    #     print("Dataset entropy")
-    #     E_dataset = self.calculate_entropy(y)
-    #     # print(E_dataset)
-    #     information_gain = []
-    #     for col in X.columns:
-    #         bin_over = X[col].where(X[col] > X[col].mean()).dropna()
-    #         bin_under = X[col].mask(X[col] > X[col].mean()).dropna()
-    #         over_labels = y.loc[bin_over.index]
-    #         under_labels = y.loc[bin_under.index]
-    #         E_col = self.calculate_entropy(
-    #             over_labels
-    #         )  # + calculate_entropy(unde_labels)
-    #         if_gain = E_dataset - E_col
-    #         information_gain.append((col, if_gain))
-    #         max_information_gain = max(information_gain)[0]
-    #     return max_information_gain
+        # create children
 
-    # def calculate_gini_index(self, X: pd.DataFrame, y: pd.Series):
-    #     return 1 - np.sum(probability**2)
+        left_indexes, right_indexes = self._split(X_column, threshold)
 
-    def _best_split(self, X: pd.DataFrame, y: pd.Series) -> dict:
+        if len(left_indexes) == 0 or len(right_indexes) == 0:
+            return 0
+
+        # calculate entropy of children
+
+        fraction_left = len(left_indexes) / len(y)
+        fraction_right = len(right_indexes) / len(y)
+
+        E_left = self._calculate_entropy(y[left_indexes])
+        E_right = self._calculate_entropy(y[right_indexes])
+
+        E_child = fraction_left * E_left + fraction_right * E_right
+
+        information_gain = E_parent - E_child
+        return information_gain
+
+    def learn(self, X, y, impurity_measure="entropy"):
+        # Convert DataFrame to nparray
+        if type(X) == pd.DataFrame:
+            X = X.to_numpy()
+
+        # Convert Series to nparray
+        if type(y) == pd.Series:
+            y = y.to_numpy()
+
+        self.root_node = self._build_tree(X, y, impurity_measure)
+
+    def _split(self, X_column, split_thresh):
+        left_indexes = np.argwhere(X_column <= split_thresh).flatten()
+        right_indexes = np.argwhere(X_column > split_thresh).flatten()
+
+        return left_indexes, right_indexes
+
+    def _best_split(self, X, y, feature_idexes, impurity_measure):
+        best_gain = -1
+        split_index, split_threshold = None, None
+
+        for feature_index in feature_idexes:
+            X_column = X[:, feature_index]
+
+            thresholds = np.unique(X_column)
+
+            for threshold in thresholds:
+                # calc information gain
+
+                if impurity_measure == "entropy":
+                    if_gain = self._information_gain(y, X_column, threshold)
+
+                    if if_gain > best_gain:
+                        best_gain = if_gain
+                        split_index = feature_index
+                        split_threshold = threshold
+
+                if impurity_measure == "gini":
+                    pass
+
+        return split_index, split_threshold
+
+    def _majority_label(self, y):
+        counts = collections.Counter(y)
+        label = counts.most_common(1)[0][0]
+        return label
+
+    def _build_tree(self, X, y, impurity_measure, level=0):
         """
-        Helper function for finding the best split
-
-        return -> dict =
-        {
-        feature: str,
-        threshold: float,
-        data_left: (Dataframe, Series),
-        data_right: (Dataframe, Series),
-        if_gain: float,
-        }
+        Recursive helper function to build the decision tree
         """
-        best_split = {}
-        best_if_gain = -1
+        # X = np.atleast_2d(X)
+        n_samples, n_features = X.shape
+        n_labels = len(np.unique(y))
 
-        # Loop through every feature
-        for col in X.columns:
-            # Split dataset by mean of feature
-        
-            for threshold in X[col].unique():
+        # Check for stopping criteria
+        if (
+            n_labels
+            == 1
+            # or level >= self.max_depth
+            # or n_samples < self.min_samples_split
+        ):
+            leaf_value = self._majority_label(y)
+            node = Node(value=leaf_value)
+            return node
 
-                X_right = X.where(X[col] > threshold).dropna()
-                X_left = X.mask(X[col] > threshold).dropna()
-                y_right = y.loc[X_right.index]
-                y_left = y.loc[X_left.index]
+        elif self._equal_feature_values(X):
+            leaf_value = self._majority_label(y)
+            return Node(value=leaf_value)
 
-                # Calculate only if there is data in both splits
-                if len(y_right) > 0 and len(y_right) > 0:
-                    # Calculate information information gain
-                    # Save split parameters if current split is better than previous
-                    if_gain = self._calc_information_gain(y, y_left, y_right)
-                    if if_gain > best_if_gain:
-                        # print("x_right", X_right.shape)
-                        # print("x_left", X_left.shape)
-                        best_split = {
-                            "feature": col,
-                            "threshold": threshold,
-                            "data_left": (X_left, y_left),
-                            "data_right": (X_right, y_right),
-                            "if_gain": if_gain,
-                        }
-                        best_if_gain = if_gain
+        feature_indexes = list(range(n_features))
+        # feature_indexes = np.random.choice(n_features, self.n_features, replace=False)
 
-        return best_split
+        # best split
 
-    # def split_dataset_on_feature(self, X: pd.DataFrame, y: pd.Series, feature: str):
-    #     split1 = X[feature].where(X[feature] > X[feature].mean()).dropna()
-    #     split2 = X[feature].mask(X[feature] > X[feature].mean()).dropna()
-    #     labels1 = y.loc[split1.index]
-    #     labels2 = y.loc[split2.index]
-    #     left_node = Node(split1, labels1)
-    #     right_node = Node(split2, labels2)
-    #     return left_node, right_node
+        best_feature, best_threshold = self._best_split(
+            X, y, feature_indexes, impurity_measure
+        )
 
-    # def calculate_impurity(self, X: pd.DataFrame, y: pd.Series, type: str) -> str:
-    #     if type == "entropy":
-    #         return self.calculate_information_gain(X, y)
-    #
-    #     elif type == "gini":
-    #         return self.calculate_gini_index(X, y)
+        # create children
+        left_indexes, right_indexes = self._split(X[:, best_feature], best_threshold)
 
-    def _build_tree(self, X: pd.DataFrame, y: pd.Series, level) -> Node:
-        # Check if it should be a leaf node
+        left = self._build_tree(X[left_indexes, :], y[left_indexes], level + 1)
+        right = self._build_tree(X[right_indexes, :], y[right_indexes], level + 1)
+        return Node(best_feature, best_threshold, left, right)
 
-        # All labels are the same
-        if len(y.unique()) == 1:
-            leaf = Node(value=y.unique()[0])
-            # leaf.display_leaf(level)
-            # print("Leaf condition same labels")
-            # print(y.unique(), leaf.value)
-            # print()
-            return leaf
-        # All data points have identical feature values
-        elif self.equal_features(X):
-            leaf = Node(value=y.value_counts().max())
-            # leaf.display_leaf(level)
-            # print("Leaf condition same datapoints")
-            # print(y.value_counts().max(), leaf.value)
-            # print()
-            return leaf
+    def _predict(self, x, node: Node):
+        if node.is_leaf():
+            return node.value
+
+        if x[node.feature] <= node.threshold:
+            return self._predict(x, node.data_left)
+        return self._predict(x, node.data_right)
+
+    def display_tree(self):
+        self._display(self.root_node)
+
+    def _display(self, node, level=0):
+        if node.is_leaf():
+            node.display(level)
+
         else:
-            best_split = self._best_split(X, y)
+            node.display(level)
 
-            if best_split == {}:
-                pass
-            # Check if split is not pure
-            elif best_split["if_gain"] > 0:
-                # Build branches
-                # print("split")
-                # print(best_split["data_left"])
+            self._display(node.data_left, level + 1)
+            self._display(node.data_right, level + 1)
 
-                left_branch = self._build_tree(
-                    X=best_split["data_left"][0],
-                    y=best_split["data_left"][1],
-                    level=level + 1,
-                )
-
-                right_branch = self._build_tree(
-                    X=best_split["data_right"][0],
-                    y=best_split["data_right"][1],
-                    level=level + 1,
-                )
-                decision = Node(
-                    feature=best_split["feature"],
-                    threshold=best_split["threshold"],
-                    data_left=left_branch,
-                    data_right=right_branch,
-                    gain=best_split["if_gain"],
-                )
-
-                # decision.display_decision(level)
-                return decision
-        test = Node(value=y.value_counts().max())
-        print(y.value_counts())
-        # print("Rest node")
-        # print(test.value)
-        return test
-
-    def learn(self, X: pd.DataFrame, y: pd.Series, impurity_measure="entropy"):
-        self.root_node = self._build_tree(X, y, 0)
-
-    # def _display_tree(self, tree: Node, level):
-    #     # Display leaf
-    #     if tree.value is not None:
-    #         tree.display_leaf(level+1)
-    #
-    #     tree.display_decision(level)
-    #
-    #
-    #     return self._display_tree(level+1)
-
-    def _predict(self, x: pd.DataFrame, tree: Node):
-        """
-        Recursive helper function
-        """
-
-        # Lmeaieaf node
-        if tree.value is not None:
-            return tree.value
-
-        feature_value = x[1][tree.feature]
-        # print(tree.feature, feature_value)
-
-        # Go left
-        if feature_value <= tree.threshold:
-            # print(feature_value, " <= ", tree.threshold)
-            return self._predict(x=x, tree=tree.data_left)
-
-        # Go right
-        if feature_value > tree.threshold:
-            # print(feature_value, " > ", tree.threshold)
-            return self._predict(x=x, tree=tree.data_right)
-
-    def predict(self, x: pd.DataFrame):
+    def predict(self, X):
         """
         Prediction function for classifying new data
         """
-
-        return [self._predict(row, self.root_node) for row in x.iterrows()]
+        if type(X) == pd.DataFrame:
+            X = X.to_numpy()
+        return np.array([self._predict(x, self.root_node) for x in X])
 
 
 if __name__ == "__main__":
-    pass
+    dt = DecisionTree()
+
+    gini = dt._calculate_gini([0, 0, 0, 1, 0, 0])
+    print(gini)
