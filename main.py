@@ -18,11 +18,10 @@ X_train, x_test, y_train, y_test = train_test_split(
 dt = DecisionTree()
 
 dt.learn(X_train, y_train)
+dt.display_tree()
 
 prediction = dt.predict(x_test)
-
 score = accuracy_score(y_test, prediction)
-
 print(score)
 
 # sk_model = DecisionTreeClassifier()
