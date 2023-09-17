@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import collections
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+from copy import deepcopy
 from Node import Node
 
 
@@ -9,11 +12,12 @@ class DecisionTree:
     Class which implements the decision tree algorithm
     """
 
-    def __init__(self) -> None:
+    def __init__(self, random_state=None) -> None:
         # self.min_samples_split = min_samples_split
         # self.max_depth = max_depth
         # self.n_features = n_features
         self.root_node: Node
+        self.random_state = random_state
 
     def _equal_feature_values(self, X) -> bool:
         """
@@ -58,9 +62,26 @@ class DecisionTree:
         probabilities = np.bincount(y) / len(y)
         return 1 - np.sum(probabilities**2)
 
-    def _information_gain(
-        self, y, X_column, threshold, impurity_measure
-    ) -> np.floating | int:
+    def set_impurity_function(self, impurity_measure: str) -> None:
+        """
+        Sets impurity function of decision tree
+
+        Params
+        ----------
+        impurity_measure: "entropy" or ""
+
+        return: None
+        """
+        if impurity_measure == "entropy":
+            self.impurity_function = self._calculate_entropy
+        elif impurity_measure == "gini":
+            self.impurity_function = self._calculate_gini
+        else:
+            raise Exception(
+                f"There is no impurity function for measure: {impurity_measure}"
+            )
+
+    def _information_gain(self, y, X_column, threshold) -> np.floating | int:
         """
         Calculate information gain for a feature column
 
@@ -70,21 +91,11 @@ class DecisionTree:
         y: labels
         X_column: feature column
         threshold: feature value to split from
-        impurity_measure: "entropy" or "gini"
 
         return: information gain
         """
-        # Set impurity function from impurity measure
-        if impurity_measure == "entropy":
-            impurity_func = self._calculate_entropy
-        elif impurity_measure == "gini":
-            impurity_func = self._calculate_gini
-        else:
-            raise Exception(
-                f"There is no impurity function for measure: {impurity_measure}"
-            )
 
-        impurity_parent = impurity_func(y)
+        impurity_parent = self.impurity_function(y)
 
         # get children
 
@@ -98,8 +109,8 @@ class DecisionTree:
         fraction_left = len(left_indexes) / len(y)
         fraction_right = len(right_indexes) / len(y)
 
-        impurity_left = impurity_func(y[left_indexes])
-        impurity_right = impurity_func(y[right_indexes])
+        impurity_left = self.impurity_function(y[left_indexes])
+        impurity_right = self.impurity_function(y[right_indexes])
 
         # Calculate information gain
 
@@ -107,26 +118,6 @@ class DecisionTree:
 
         information_gain = impurity_parent - impurity_child
         return information_gain
-
-    def learn(self, X, y, impurity_measure="entropy") -> None:
-        """
-        Learn a decision tree from training features and labels
-
-        Params
-        ----------
-        X: feature columns
-        y: labels
-        impurity_measure: "entropy" or "gini"
-        """
-        # Convert DataFrame to nparray
-        if type(X) == pd.DataFrame:
-            X = X.to_numpy()
-
-        # Convert Series to nparray
-        if type(y) == pd.Series:
-            y = y.to_numpy()
-
-        self.root_node = self._build_tree(X, y, impurity_measure)
 
     def _split(self, X_column, threshold):
         """
@@ -144,7 +135,7 @@ class DecisionTree:
 
         return left_indexes, right_indexes
 
-    def _best_split(self, X, y, feature_idexes, impurity_measure):
+    def _best_split(self, X, y, feature_idexes):
         """
         Gets the best split based on impurity_measure
 
@@ -153,7 +144,6 @@ class DecisionTree:
         X: feature columns
         y: labels
         feature_indexes: feature indexes
-        impurity_measure: "entropy" or "gini"
 
         return: (index, threshold) of split
         """
@@ -167,9 +157,7 @@ class DecisionTree:
 
             for threshold in thresholds:
                 # calc information gain
-                if_gain = self._information_gain(
-                    y, X_column, threshold, impurity_measure
-                )
+                if_gain = self._information_gain(y, X_column, threshold)
 
                 if if_gain > best_gain:
                     best_gain = if_gain
@@ -192,6 +180,100 @@ class DecisionTree:
         label = counts.most_common(1)[0][0]
         return label
 
+    def learn(self, X, y, impurity_measure="entropy", prune=False) -> None:
+        """
+        Learn a decision tree from training features and labels
+
+        Params
+        ----------
+        X: feature columns
+        y: labels
+        impurity_measure: "entropy" or "gini"
+        """
+        self.set_impurity_function(impurity_measure)
+        # Convert DataFrame to nparray
+        if type(X) == pd.DataFrame:
+            X = X.to_numpy()
+
+        # Convert Series to nparray
+        if type(y) == pd.Series:
+            y = y.to_numpy()
+
+        if prune:
+            (
+                self.X_train,
+                self.X_pruning,
+                self.y_train,
+                self.y_pruning,
+            ) = train_test_split(X, y, test_size=0.2, random_state=self.random_state)
+        else:
+            self.X_train, self.y_train = X, y
+
+        self.root_node = self._build_tree(self.X_train, self.y_train, impurity_measure)
+
+        if prune:
+            self.prune()
+
+    def prune(self):
+        """
+        Prunes the decision tree and sets the root to the pruned tree
+        """
+        # 1. Go all the way down from root node copy
+        # 2. Store all visited nodes in a list
+        # 3. If a node is a leaf, go back to its parent
+        # 4. Remove children and set value to majority label
+        # 5. Check if accuracy is worse, if it is place children back
+        # 6. Go up to parent and repeat step 2 to 5
+
+        self.pruned_tree = deepcopy(self.root_node)
+        visited_nodes = set()
+        self._prune(visited_nodes, self.pruned_tree)
+        self.root_node = self.pruned_tree
+
+    def _worse_accuracy(self) -> bool:
+        """
+        Compares the accuracy betwenn pruned and unpruned tree
+        """
+        unpruned_pred = self.predict(self.X_pruning)
+        pruned_pred = self._predict_pruned(self.pruned_tree, self.X_pruning)
+
+        accuracy_unpruned = accuracy_score(self.y_pruning, unpruned_pred)
+        accuracy_pruned = accuracy_score(self.y_pruning, pruned_pred)
+
+        decrease = accuracy_pruned - accuracy_unpruned
+        if decrease < 0:
+            return True
+        else:
+            return False
+
+    def _prune(self, visited: set[Node], node: Node, prev_node: Node = None) -> None:
+        """
+        Recursively prune the decision tree, and compare with unpruned tree
+        """
+        if node is None:
+            pass
+        elif node not in visited:
+            visited.add(node)
+
+            if node.is_leaf():
+                feat = prev_node.feature
+                thresh = prev_node.threshold
+                left = prev_node.data_left
+                right = prev_node.data_right
+                prev_node.convert_to_leaf()
+                # test accurracy
+                if self._worse_accuracy():
+                    # restore decision node and keep searching
+                    prev_node.restore_decision_node(feat, thresh, left, right)
+                    self._prune(visited, prev_node)
+                else:
+                    visited.add(right)
+                    self._prune(visited, prev_node)
+
+            else:
+                self._prune(visited, node.data_left, node)
+                self._prune(visited, node.data_right, node)
+
     def _build_tree(self, X, y, impurity_measure, level=0) -> Node:
         """
         Recursive helper function to build the decision tree
@@ -205,7 +287,6 @@ class DecisionTree:
 
         return: leaf node or decision node
         """
-        # X = np.atleast_2d(X)
         n_samples, n_features = X.shape
         n_labels = len(np.unique(y))
 
@@ -229,9 +310,7 @@ class DecisionTree:
 
         # best split
 
-        best_feature, best_threshold = self._best_split(
-            X, y, feature_indexes, impurity_measure
-        )
+        best_feature, best_threshold = self._best_split(X, y, feature_indexes)
 
         # create children
         left_indexes, right_indexes = self._split(X[:, best_feature], best_threshold)
@@ -242,7 +321,9 @@ class DecisionTree:
         right = self._build_tree(
             X[right_indexes, :], y[right_indexes], impurity_measure, level + 1
         )
-        return Node(best_feature, best_threshold, left, right)
+        majority_label = self._majority_label(y)
+
+        return Node(best_feature, best_threshold, left, right, majority_label)
 
     def _predict(self, x, node: Node):
         """
@@ -255,24 +336,27 @@ class DecisionTree:
             return self._predict(x, node.data_left)
         return self._predict(x, node.data_right)
 
-    def display_tree(self):
+    def display_tree(self) -> None:
         """
         Display the decision tree
         """
-        self._display(self.root_node)
+        levels = self._display(self.root_node, set())
+        print(f"There are {len(levels)} levels in tree.")
 
-    def _display(self, node: Node, level=0):
+    def _display(self, node: Node, levels: set, level=0) -> set[int]:
         """
         Recursive helper function for traversing tree
         """
+        levels.add(level)
         if node.is_leaf():
             node.display(level)
 
         else:
             node.display(level)
 
-            self._display(node.data_left, level + 1)
-            self._display(node.data_right, level + 1)
+            self._display(node.data_left, levels, level + 1)
+            self._display(node.data_right, levels, level + 1)
+        return levels
 
     def predict(self, X):
         """
@@ -287,6 +371,20 @@ class DecisionTree:
         if type(X) == pd.DataFrame:
             X = X.to_numpy()
         return np.array([self._predict(x, self.root_node) for x in X])
+
+    def _predict_pruned(self, pruned_tree: Node, X):
+        """
+        Prediction function for classifying new data on pruned tree
+
+        Params
+        ----------
+        X: feature columns
+
+        return: numpy array of prediction(s)
+        """
+        if type(X) == pd.DataFrame:
+            X = X.to_numpy()
+        return np.array([self._predict(x, pruned_tree) for x in X])
 
 
 if __name__ == "__main__":
