@@ -1,14 +1,11 @@
 import pandas as pd
-import numpy as np
-from DecisionTree import DecisionTree
-from sklearn.model_selection import train_test_split, StratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
-from sklearn.tree import DecisionTreeClassifier
-import itertools
-import operator
+from Evaluation import Evaluation
 
-seed = 200
+seed = None
 
+# Read dataset and split into training and test data
 data = pd.read_csv("wine_dataset.csv")
 
 X = data.loc[:, :"alcohol"]
@@ -18,41 +15,29 @@ X_train, x_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=seed
 )
 
-# Creating every possible model for evaluation
+# Evaluate the parameters for models
+eval = Evaluation(X_train, y_train, random_state=seed)
 
-impurity_measures = ["entropy", "gini"]
-pruning = [True, False]
-
-model_parameters = list(itertools.product(*[impurity_measures, pruning]))
-
-
-models = [(params, DecisionTree(random_state=seed)) for params in model_parameters]
+implementation_model, implementation_params = eval.best_model_of_implementation()
+sklearn_model, sklearn_params = eval.best_model_of_sklearn()
 
 
-# Evaluate each model
-model_results = []
-kfold = StratifiedKFold(n_splits=10, random_state=seed, shuffle=True)
-for params, model in models:
-    validation_scores = []
-    for train_index, val_index in kfold.split(X_train, y_train):
-        x_train_fold, x_val_fold = X_train.iloc[train_index], X_train.iloc[val_index]
-        y_train_fold, y_val_fold = y_train.iloc[train_index], y_train.iloc[val_index]
-        model.learn(x_train_fold, y_train_fold, params[0], params[1])
-        val_prediction = model.predict(x_val_fold)
-        val_score = accuracy_score(y_val_fold, val_prediction)
-        validation_scores.append(val_score)
-    mean_score = np.mean(validation_scores)
-    model_results.append((model, mean_score))
-    print(f"{params}: {mean_score}")
-
-# Test score on best model
-best_model_index = model_results.index(max(model_results, key=operator.itemgetter(1)))
-best_model_params = models[best_model_index][0]
-best_model = models[best_model_index][1]
-
-best_model.learn(X_train, y_train, best_model_params[0], best_model_params[1])
-prediction = best_model.predict(x_test)
+# Train and test each model
+implementation_model.learn(
+    X_train, y_train, implementation_params[0], implementation_params[1]
+)
+prediction = implementation_model.predict(x_test)
 score = accuracy_score(y_test, prediction)
 
-print(f"Best model with parameters: {best_model_params}.")
+
+sklearn_model.fit(X_train, y_train)
+sklearn_prediction = sklearn_model.predict(x_test)
+sklearn_score = accuracy_score(y_test, sklearn_prediction)
+
+# Results
+print(f"\nBest implemented model with parameters: {implementation_params}.")
 print(f"accuracy: {score}")
+
+
+print(f"\nBest sklearn model with parameters: {sklearn_params}")
+print(f"accuracy: {sklearn_score}")
