@@ -1,13 +1,10 @@
-from __future__ import annotations
-
-
 class Node:
     def __init__(
         self,
         feature=None,
         threshold=None,
-        data_left: Node = None,
-        data_right: Node = None,
+        data_left=None,
+        data_right=None,
         majority_label=None,
         *,
         value=None,
@@ -24,7 +21,7 @@ class Node:
 
     def convert_to_leaf(self):
         """
-        Converts decision node to leaf node
+        Converts decision node to leaf node:
         """
         self.value = self.majority_label
         self.feature = None
