@@ -101,6 +101,8 @@ class DecisionTree:
 
         left_indexes, right_indexes = self._split(X_column, threshold)
 
+        # check if the split just moves the original data
+        # to either side and leaving the other empty
         if len(left_indexes) == 0 or len(right_indexes) == 0:
             return 0
 
@@ -119,7 +121,7 @@ class DecisionTree:
         information_gain = impurity_parent - impurity_child
         return information_gain
 
-    def _split(self, X_column, threshold):
+    def _split(self, X_column, threshold) -> tuple:
         """
         Splits feature column on a threshold
 
@@ -135,7 +137,7 @@ class DecisionTree:
 
         return left_indexes, right_indexes
 
-    def _best_split(self, X, y, feature_idexes):
+    def _best_split(self, X, y, feature_idexes) -> tuple:
         """
         Gets the best split based on impurity_measure
 
@@ -166,7 +168,7 @@ class DecisionTree:
 
         return split_index, split_threshold
 
-    def _majority_label(self, y):
+    def _majority_label(self, y) -> int:
         """
         Gets the most common label
 
@@ -190,7 +192,9 @@ class DecisionTree:
         y: labels
         impurity_measure: "entropy" or "gini"
         """
+
         self.set_impurity_function(impurity_measure)
+
         # Convert DataFrame to nparray
         if type(X) == pd.DataFrame:
             X = X.to_numpy()
@@ -205,16 +209,16 @@ class DecisionTree:
                 self.X_pruning,
                 self.y_train,
                 self.y_pruning,
-            ) = train_test_split(X, y, test_size=0.2, random_state=self.random_state)
+            ) = train_test_split(X, y, test_size=0.15, random_state=self.random_state)
         else:
             self.X_train, self.y_train = X, y
 
-        self.root_node = self._build_tree(self.X_train, self.y_train, impurity_measure)
+        self.root_node = self._build_tree(self.X_train, self.y_train)
 
         if prune:
             self.prune()
 
-    def prune(self):
+    def prune(self) -> None:
         """
         Prunes the decision tree and sets the root to the pruned tree
         """
@@ -240,11 +244,13 @@ class DecisionTree:
         accuracy_unpruned = accuracy_score(self.y_pruning, unpruned_pred)
         accuracy_pruned = accuracy_score(self.y_pruning, pruned_pred)
 
-        decrease = accuracy_pruned - accuracy_unpruned
-        if decrease < 0:
-            return True
-        else:
+        # decrease = accuracy_pruned - accuracy_unpruned
+        # if decrease < 0:
+        #     return True
+        if accuracy_pruned >= accuracy_unpruned:
             return False
+        else:
+            return True
 
     def _prune(self, visited: set[Node], node: Node, prev_node: Node = None) -> None:
         """
@@ -274,7 +280,7 @@ class DecisionTree:
                 self._prune(visited, node.data_left, node)
                 self._prune(visited, node.data_right, node)
 
-    def _build_tree(self, X, y, impurity_measure, level=0) -> Node:
+    def _build_tree(self, X, y, depth=0) -> Node:
         """
         Recursive helper function to build the decision tree
 
@@ -282,13 +288,13 @@ class DecisionTree:
         ----------
         X: feature columns
         y: labels
-        impurity_measure: "entropy" or "gini"
         level: tree depth
 
         return: leaf node or decision node
         """
         n_samples, n_features = X.shape
         n_labels = len(np.unique(y))
+        majority_label = self._majority_label(y)
 
         # Check for stopping criteria
         if (
@@ -297,13 +303,12 @@ class DecisionTree:
             # or level >= self.max_depth
             # or n_samples < self.min_samples_split
         ):
-            leaf_value = self._majority_label(y)
-            node = Node(value=leaf_value)
-            return node
+            # leaf_value = self._majority_label(y)
+            return Node(value=majority_label)
 
         elif self._equal_feature_values(X):
-            leaf_value = self._majority_label(y)
-            return Node(value=leaf_value)
+            # leaf_value = self._majority_label(y)
+            return Node(value=majority_label)
 
         feature_indexes = list(range(n_features))
         # feature_indexes = np.random.choice(n_features, self.n_features, replace=False)
@@ -315,13 +320,8 @@ class DecisionTree:
         # create children
         left_indexes, right_indexes = self._split(X[:, best_feature], best_threshold)
 
-        left = self._build_tree(
-            X[left_indexes, :], y[left_indexes], impurity_measure, level + 1
-        )
-        right = self._build_tree(
-            X[right_indexes, :], y[right_indexes], impurity_measure, level + 1
-        )
-        majority_label = self._majority_label(y)
+        left = self._build_tree(X[left_indexes, :], y[left_indexes], depth + 1)
+        right = self._build_tree(X[right_indexes, :], y[right_indexes], depth + 1)
 
         return Node(best_feature, best_threshold, left, right, majority_label)
 
@@ -358,7 +358,7 @@ class DecisionTree:
             self._display(node.data_right, levels, level + 1)
         return levels
 
-    def predict(self, X):
+    def predict(self, X) -> np.ndarray:
         """
         Prediction function for classifying new data
 
@@ -372,7 +372,7 @@ class DecisionTree:
             X = X.to_numpy()
         return np.array([self._predict(x, self.root_node) for x in X])
 
-    def _predict_pruned(self, pruned_tree: Node, X):
+    def _predict_pruned(self, pruned_tree: Node, X) -> np.ndarray:
         """
         Prediction function for classifying new data on pruned tree
 
