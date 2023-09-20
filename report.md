@@ -70,6 +70,7 @@ The method recursively calls itself on each branch and then returns a decision n
 
 The whole tree is stored in the root_node variable.
 
+\newpage
 
 ### Pruning the tree
 
@@ -106,13 +107,19 @@ Since the dataset is balanced with equal amounts of each label, there is no need
 to use Stratisfied Kfold.
 
 
+\newpage
 
 ## Results
 
-Training and test is split 80/20
+Training and test is split 80/20.
 
-For calculating performance, I used the metric accuracy score
+For calculating performance, I used the metric accuracy_score
 from sklearn. It is used in both validation and testing.
+
+The program was runned 5 times, test results can be found at the end
+of this section. I choose to leave out the cross validation results 
+for each possible model in the report. These results can be found by
+running the program with the given seed of the run.
 
 Results on each run seems pretty consistent.
 Run 1 and 3 has a better accuracy score on validation than test.
@@ -122,24 +129,28 @@ but I'm more inclined to say it is the randomness when
 splitting the training set.
 The other three runs have a better test score than validation.
 
-Accuracy on the test set varies between 88-91% for both,
+Accuracy on the test set varies between 88-91% for both
 my implementation and sklearn. For all runs, using entropy without
 pruning yields the best model in both the implemented method and sklearn,
 except for run 5, where sklearn uses gini instead.
 
-Both implementations' accuracy on the test set, are almost identical,
+Both implementations' accuracy on the test set are almost identical
 with less than 1% difference in all runs.
 
 The biggest difference between the implementations is the training and
 testing time.
 Sklearn's implementation is on average 100 times faster than my 
-implementation.
+implementation.[^1]
 
 There is most likely a lot of optimizations that have been implemented,
-which I don't know about/how to implement.
+which I don't know about or know how to implement.
 There is no inherent reason to choose my implementation over sklearn's.
 The accuracy is practically the same, but speed difference is too great
 to not use sklearn's implementation
+
+[^1]: Time will vary depending on system hardware
+
+\newpage
 
 
 ### Runs
@@ -147,22 +158,6 @@ to not use sklearn's implementation
 #### Run 1 
 
 Run using seed: 52
-
-Cross validation of implemented DecisionTree...
-
-('entropy', True): 0.8788189338235295
-
-('entropy', False): 0.8917202818627452
-
-('gini', True): 0.8901501225490197
-
-('gini', False): 0.8893719362745098
-
-Cross validation of sklearn DecisionTree...
-
-gini: 0.8870235906862746
-
-entropy: 0.8975827205882354
 
 Best implemented model with parameters: ('entropy', False).
 
@@ -180,22 +175,6 @@ Time training and testing: 0.004796028137207031
 
 Run using seed: 255
 
-Cross validation of implemented DecisionTree...
-
-('entropy', True): 0.8823330269607844
-
-('entropy', False): 0.8889813112745099
-
-('gini', True): 0.8780376838235295
-
-('gini', False): 0.8838985906862746
-
-Cross validation of sklearn DecisionTree...
-
-gini: 0.8815533088235294
-
-entropy: 0.892107843137255
-
 Best implemented model with parameters: ('entropy', False).
 
 accuracy: 0.9125
@@ -212,22 +191,6 @@ Time training and testing: 0.004965066909790039
 
 Run using seed: 808
 
-Cross validation of implemented DecisionTree...
-
-('entropy', True): 0.8842830882352942
-
-('entropy', False): 0.8924846813725491
-
-('gini', True): 0.8807659313725491
-
-('gini', False): 0.8862285539215687
-
-Cross validation of sklearn DecisionTree...
-
-gini: 0.8874111519607844
-
-entropy: 0.9018750000000001
-
 Best implemented model with parameters: ('entropy', False).
 
 accuracy: 0.878125
@@ -240,25 +203,11 @@ accuracy: 0.8796875
 
 Time training and testing: 0.004686594009399414
 
+\newpage
+
 #### Run 4
 
 Run using seed: 100
-
-Cross validation of implemented DecisionTree...
-
-('entropy', True): 0.8854641544117647
-
-('entropy', False): 0.890920649509804
-
-('gini', True): 0.8791942401960784
-
-('gini', False): 0.8795909926470589
-
-Cross validation of sklearn DecisionTree...
-
-gini: 0.8788036151960783
-
-entropy: 0.887014399509804
 
 Best implemented model with parameters: ('entropy', False).
 
@@ -275,22 +224,6 @@ Time training and testing: 0.005068778991699219
 #### Run 5
 
 Run using seed: 15
-
-Cross validation of implemented DecisionTree...
-
-('entropy', True): 0.8866329656862746
-
-('entropy', False): 0.8889782475490197
-
-('gini', True): 0.8835140931372549
-
-('gini', False): 0.8842723651960785
-
-Cross validation of sklearn DecisionTree...
-
-gini: 0.892092524509804
-
-entropy: 0.8897671568627452
 
 Best implemented model with parameters: ('entropy', False).
 
