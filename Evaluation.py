@@ -1,8 +1,8 @@
 import numpy as np
-import pandas as pd
+from pandas import DataFrame
 from DecisionTree import DecisionTree
 from sklearn.tree import DecisionTreeClassifier
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import KFold
 from sklearn.metrics import accuracy_score
 import itertools
 import operator
@@ -13,7 +13,7 @@ class Evaluation:
     Class for evaluating differnt decision tree implementations
     """
     def __init__(
-        self, X_train: pd.DataFrame, y_train: pd.DataFrame, random_state=None
+        self, X_train: DataFrame, y_train: DataFrame, random_state=None
     ) -> None:
         self.X_train = X_train
         self.y_train = y_train
@@ -31,8 +31,7 @@ class Evaluation:
 
         return: (model, parameters)
         """
-
-        print("\nEvaluating implemented DecisionTree...")
+        print("\nCross validation of implemented DecisionTree...")
 
         # Creating every possible model for evaluation
         models = [
@@ -42,13 +41,12 @@ class Evaluation:
 
         # Evaluate each model
         model_results = []
-        kfold = StratifiedKFold(n_splits=10, random_state=self.seed, shuffle=True)
+        kfold = KFold(n_splits=10, random_state=self.seed, shuffle=True)
 
         for params, model in models:
             validation_scores = []
 
             for train_index, val_index in kfold.split(self.X_train, self.y_train):
-
                 x_train_fold, x_val_fold = (
                     self.X_train.iloc[train_index],
                     self.X_train.iloc[val_index],
@@ -83,7 +81,7 @@ class Evaluation:
 
         return: (DecisionTreeClassifier, parameters)
         """
-        print("\nEvaluating sklearn DecisionTree...")
+        print("\nCross validation of sklearn DecisionTree...")
         models = [
             ("gini", DecisionTreeClassifier(criterion="gini", random_state=self.seed)),
             (
@@ -94,13 +92,12 @@ class Evaluation:
 
         # Evaluate each model
         model_results = []
-        kfold = StratifiedKFold(n_splits=10, random_state=self.seed, shuffle=True)
+        kfold = KFold(n_splits=10, random_state=self.seed, shuffle=True)
 
         for params, model in models:
             validation_scores = []
 
             for train_index, val_index in kfold.split(self.X_train, self.y_train):
-
                 x_train_fold, x_val_fold = (
                     self.X_train.iloc[train_index],
                     self.X_train.iloc[val_index],

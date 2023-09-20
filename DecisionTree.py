@@ -31,10 +31,7 @@ class DecisionTree:
         """
         equal_row_values = np.all(X == X[0, :], axis=0)
 
-        for equal in equal_row_values:
-            if not equal:
-                return False
-        return True
+        return all(equal for equal in equal_row_values)
 
     def _calculate_entropy(self, y) -> np.floating:
         """
@@ -68,7 +65,7 @@ class DecisionTree:
 
         Params
         ----------
-        impurity_measure: "entropy" or ""
+        impurity_measure: "entropy" or "gini"
 
         return: None
         """
@@ -77,14 +74,11 @@ class DecisionTree:
         elif impurity_measure == "gini":
             self.impurity_function = self._calculate_gini
         else:
-            raise Exception(
-                f"There is no impurity function for measure: {impurity_measure}"
-            )
+            raise Exception(f"There is no impurity function for: {impurity_measure}")
 
     def _information_gain(self, y, X_column, threshold) -> np.floating | int:
         """
         Calculate information gain for a feature column
-
 
         Params
         ----------
@@ -98,16 +92,13 @@ class DecisionTree:
         impurity_parent = self.impurity_function(y)
 
         # get children
-
         left_indexes, right_indexes = self._split(X_column, threshold)
 
-        # check if the split just moves the original data
-        # to either side and leaving the other empty
+        # check if either split is empty
         if len(left_indexes) == 0 or len(right_indexes) == 0:
             return 0
 
         # calculate impurity on children
-
         fraction_left = len(left_indexes) / len(y)
         fraction_right = len(right_indexes) / len(y)
 
@@ -115,7 +106,6 @@ class DecisionTree:
         impurity_right = self.impurity_function(y[right_indexes])
 
         # Calculate information gain
-
         impurity_child = fraction_left * impurity_left + fraction_right * impurity_right
 
         information_gain = impurity_parent - impurity_child
@@ -158,7 +148,6 @@ class DecisionTree:
             thresholds = np.unique(X_column)
 
             for threshold in thresholds:
-                # calc information gain
                 if_gain = self._information_gain(y, X_column, threshold)
 
                 if if_gain > best_gain:
@@ -192,7 +181,6 @@ class DecisionTree:
         y: labels
         impurity_measure: "entropy" or "gini"
         """
-
         self.set_impurity_function(impurity_measure)
 
         # Convert DataFrame to nparray
@@ -221,14 +209,9 @@ class DecisionTree:
     def prune(self) -> None:
         """
         Prunes the decision tree and sets the root to the pruned tree
-        """
-        # 1. Go all the way down from root node copy
-        # 2. Store all visited nodes in a list
-        # 3. If a node is a leaf, go back to its parent
-        # 4. Remove children and set value to majority label
-        # 5. Check if accuracy is worse, if it is place children back
-        # 6. Go up to parent and repeat step 2 to 5
 
+        return: None
+        """
         self.pruned_tree = deepcopy(self.root_node)
         visited_nodes = set()
         self._prune(visited_nodes, self.pruned_tree)
@@ -236,7 +219,9 @@ class DecisionTree:
 
     def _worse_accuracy(self) -> bool:
         """
-        Compares the accuracy betwenn pruned and unpruned tree
+        Compares the accuracy between pruned and unpruned tree
+
+        return: bool
         """
         unpruned_pred = self.predict(self.X_pruning)
         pruned_pred = self._predict_pruned(self.pruned_tree, self.X_pruning)
@@ -244,9 +229,6 @@ class DecisionTree:
         accuracy_unpruned = accuracy_score(self.y_pruning, unpruned_pred)
         accuracy_pruned = accuracy_score(self.y_pruning, pruned_pred)
 
-        # decrease = accuracy_pruned - accuracy_unpruned
-        # if decrease < 0:
-        #     return True
         if accuracy_pruned >= accuracy_unpruned:
             return False
         else:
@@ -255,6 +237,14 @@ class DecisionTree:
     def _prune(self, visited: set[Node], node: Node, prev_node: Node = None) -> None:
         """
         Recursively prune the decision tree, and compare with unpruned tree
+
+        Params
+        ----------
+        visited: set of Nodes
+        node: current node
+        prev_node: previous node
+
+        return: None
         """
         if node is None:
             pass
@@ -267,7 +257,7 @@ class DecisionTree:
                 left = prev_node.data_left
                 right = prev_node.data_right
                 prev_node.convert_to_leaf()
-                # test accurracy
+
                 if self._worse_accuracy():
                     # restore decision node and keep searching
                     prev_node.restore_decision_node(feat, thresh, left, right)
@@ -297,24 +287,15 @@ class DecisionTree:
         majority_label = self._majority_label(y)
 
         # Check for stopping criteria
-        if (
-            n_labels
-            == 1
-            # or level >= self.max_depth
-            # or n_samples < self.min_samples_split
-        ):
-            # leaf_value = self._majority_label(y)
+        if n_labels == 1:
             return Node(value=majority_label)
 
         elif self._equal_feature_values(X):
-            # leaf_value = self._majority_label(y)
             return Node(value=majority_label)
 
         feature_indexes = list(range(n_features))
-        # feature_indexes = np.random.choice(n_features, self.n_features, replace=False)
 
         # best split
-
         best_feature, best_threshold = self._best_split(X, y, feature_indexes)
 
         # create children
@@ -328,6 +309,12 @@ class DecisionTree:
     def _predict(self, x, node: Node):
         """
         Recursive helper function to traverse tree
+
+        Params
+        ----------
+        node: current node
+
+        return: int or _predict
         """
         if node.is_leaf():
             return node.value
@@ -339,6 +326,8 @@ class DecisionTree:
     def display_tree(self) -> None:
         """
         Display the decision tree
+
+        return: None
         """
         levels = self._display(self.root_node, set())
         print(f"There are {len(levels)} levels in tree.")
@@ -346,6 +335,14 @@ class DecisionTree:
     def _display(self, node: Node, levels: set, level=0) -> set[int]:
         """
         Recursive helper function for traversing tree
+
+        Params
+        ----------
+        node: current node
+        levels: set of levels
+        level: current level
+
+        return: set of levels
         """
         levels.add(level)
         if node.is_leaf():

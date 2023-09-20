@@ -1,4 +1,7 @@
 class Node:
+    """
+    Representation of a node in the decision tree.
+    """
     def __init__(
         self,
         feature=None,
@@ -17,11 +20,18 @@ class Node:
         self.majority_label = majority_label
 
     def is_leaf(self) -> bool:
+        """
+        Check if node is a leaf node.
+
+        return: bool
+        """
         return self.value is not None
 
-    def convert_to_leaf(self):
+    def convert_to_leaf(self) -> None:
         """
         Converts decision node to leaf node:
+
+        return: None
         """
         self.value = self.majority_label
         self.feature = None
@@ -29,9 +39,11 @@ class Node:
         self.data_left = None
         self.data_right = None
 
-    def restore_decision_node(self, feature, threshold, data_left, data_right):
+    def restore_decision_node(self, feature, threshold, data_left, data_right) -> None:
         """
-        Restore node back to decision node
+        Restore node back to decision node.
+
+        return: None
         """
         self.value = None
         self.feature = feature
@@ -41,7 +53,14 @@ class Node:
 
     def display(self, level) -> None:
         """
-        Display node information
+        Display node information.
+        Used for displaying tree and debugging.
+
+        Params
+        ----------
+        level: current level in the decision tree
+
+        return: None
         """
         if self.is_leaf():
             print(level * "|", f"Leaf value: {self.value}, Level: {level}")
