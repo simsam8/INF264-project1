@@ -8,6 +8,9 @@ python version used: 3.11
 Create a virtual environment and install required packages with:
 pip install -r requirements.txt
 
+Make sure you have the wine dataset in the project folder.
+(name should be wine_dataset.csv, unchanged from mittuib)
+
 Run main.py and set seed variable to replicate results from report.
 
 
