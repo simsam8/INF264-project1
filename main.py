@@ -26,6 +26,7 @@ sklearn_model, sklearn_params = eval.best_model_of_sklearn()
 
 
 # Train and test each model
+# and measure training and test time
 
 impl_start = time()
 implementation_model.learn(
