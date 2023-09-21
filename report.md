@@ -43,7 +43,7 @@ Node.py is a class representing a node in the decision tree.
 Evaluation.py is a class for evaluating and finding the best model
 for different implementations.
 main.py brings the whole program together and
-trains, evaluates and tests models, then outputs the results
+trains, evaluates and tests models, then outputs the results.
 
 Most methods in the code are well documented,
 so I will only be explaning the methods that builds and prunes the tree,
@@ -116,7 +116,7 @@ Training and test is split 80/20.
 For calculating performance, I used the metric accuracy_score
 from sklearn. It is used in both validation and testing.
 
-The program was runned 5 times, test results can be found at the end
+The program was run 5 times, test results can be found at the end
 of this section. I choose to leave out the cross validation results 
 for each possible model in the report. These results can be found by
 running the program with the given seed of the run.
@@ -153,7 +153,7 @@ to not use sklearn's implementation
 \newpage
 
 
-### Runs
+## Runs
 
 #### Run 1 
 
