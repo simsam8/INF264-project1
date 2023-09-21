@@ -13,9 +13,6 @@ class DecisionTree:
     """
 
     def __init__(self, random_state=None) -> None:
-        # self.min_samples_split = min_samples_split
-        # self.max_depth = max_depth
-        # self.n_features = n_features
         self.root_node: Node
         self.random_state = random_state
 
@@ -282,7 +279,7 @@ class DecisionTree:
 
         return: leaf node or decision node
         """
-        n_samples, n_features = X.shape
+        n_features = X.shape[1]
         n_labels = len(np.unique(y))
         majority_label = self._majority_label(y)
 
